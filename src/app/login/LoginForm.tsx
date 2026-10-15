@@ -199,49 +199,16 @@ export default function LoginForm() {
             </button>
           </form>
 
-          {/* Credenciales de acceso */}
+          {/* Indicador de seguridad */}
           <div
-            className="mt-6 p-4 rounded-lg text-xs"
-            style={{ background: 'var(--color-primary-muted)', color: 'var(--color-primary-dark)' }}
+            className="mt-8 flex items-center justify-center gap-2 text-xs"
+            style={{ color: 'var(--color-text-muted)' }}
           >
-            <p className="font-semibold mb-2">Accesos de Administrador:</p>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p><strong>Admin 1:</strong> admin1@admin.com (Emiliano)</p>
-                  <p style={{ color: 'var(--color-text-muted)' }}>Contraseña: rradmin123_</p>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-secondary text-xs"
-                  style={{ padding: '0.25rem 0.5rem', minHeight: 'auto' }}
-                  onClick={() => {
-                    setEmail('admin1@admin.com');
-                    setPassword('rradmin123_');
-                  }}
-                >
-                  Usar
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-                <div>
-                  <p><strong>Admin 2:</strong> admin2@admin.com (Freddy)</p>
-                  <p style={{ color: 'var(--color-text-muted)' }}>Contraseña: rradmin123_</p>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-secondary text-xs"
-                  style={{ padding: '0.25rem 0.5rem', minHeight: 'auto' }}
-                  onClick={() => {
-                    setEmail('admin2@admin.com');
-                    setPassword('rradmin123_');
-                  }}
-                >
-                  Usar
-                </button>
-              </div>
-            </div>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <span>Conexión cifrada y acceso protegido</span>
           </div>
         </div>
       </div>

@@ -301,7 +301,9 @@ export type AuditActionType =
   | 'PRESUPUESTO_ESTADO'
   | 'SUELDO_REGISTRADO'
   | 'SUELDO_PAGADO'
-  | 'SUELDO_ELIMINADO';
+  | 'SUELDO_ELIMINADO'
+  | 'ACCESO_EXITOSO'
+  | 'ACCESO_FALLIDO';
 
 export interface AuditLog {
   id: string;

@@ -94,6 +94,8 @@ export const AUDIT_ACTION_LABELS: Record<string, { label: string; badge: string 
   SUELDO_REGISTRADO: { label: 'Sueldo Liquidado', badge: 'badge-blue' },
   SUELDO_PAGADO: { label: 'Sueldo Pagado', badge: 'badge-green' },
   SUELDO_ELIMINADO: { label: 'Sueldo Anulado', badge: 'badge-red' },
+  ACCESO_EXITOSO: { label: 'Acceso Exitoso', badge: 'badge-green' },
+  ACCESO_FALLIDO: { label: 'Acceso Bloqueado / Fallido', badge: 'badge-red' },
 };
 
 export const SALARY_STATUS_LABELS: Record<string, { label: string; badge: string }> = {
