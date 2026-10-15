@@ -879,7 +879,7 @@ class MockDatabase {
     // ----------------------------------------------------
     // 6. CUSTOMERS (Clientes)
     // ----------------------------------------------------
-    if (q.includes('customers')) {
+    if (q.includes('customers') && !q.includes('quotes')) {
       if (q.includes('insert into customers')) {
         const newCust: MockCustomer = {
           id: 'c-' + Date.now(),
@@ -940,22 +940,28 @@ class MockDatabase {
         return this.quoteTemplates;
       }
 
+      if (q.includes('count(*)')) {
+        const bId = params[0];
+        const count = this.quotes.filter((qu) => !bId || qu.business_id === bId).length;
+        return [{ count }];
+      }
+
       if (q.includes('insert into quotes')) {
         const newQuote: MockQuote = {
-          id: 'q-' + Date.now(),
+          id: 'q-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
           business_id: params[0],
           customer_id: params[1] ?? null,
-          template_id: null,
-          quote_number: 'PRE-' + String(this.quotes.length + 1).padStart(4, '0'),
+          template_id: params[2] ?? null,
+          quote_number: params[3] ?? ('P-' + String(this.quotes.length + 1).padStart(5, '0')),
           status: 'draft',
-          vehicle_info: params[3] ?? null,
-          vin: params[4] ?? null,
-          subtotal: Number(params[5]) || 0,
-          vat_rate: Number(params[6]) || 21,
-          vat_amount: Number(params[7]) || 0,
-          total: Number(params[8]) || 0,
-          notes: params[9] ?? null,
-          valid_until: params[10] ?? null,
+          vehicle_info: params[4] ?? null,
+          vin: params[5] ?? null,
+          subtotal: Number(params[6]) || 0,
+          vat_rate: Number(params[7]) || 21,
+          vat_amount: Number(params[8]) || 0,
+          total: Number(params[9]) || 0,
+          notes: params[10] ?? null,
+          valid_until: params[11] ?? null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };

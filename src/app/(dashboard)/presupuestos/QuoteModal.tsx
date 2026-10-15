@@ -90,12 +90,21 @@ export default function QuoteModal({
   }
 
   function addManualItem() {
-    setItems((prev) => [...prev, { sku: '', name: '', brand: '', quantity: 1, unit_price: 0 }]);
+    setItems((prev) => [...prev, { sku: 'VARIOS', name: '', brand: '', quantity: 1, unit_price: 0 }]);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (items.length === 0) { setError('Agregá al menos un repuesto'); return; }
+    if (items.length === 0) {
+      setError('Agregá al menos un repuesto al presupuesto');
+      return;
+    }
+    for (const item of items) {
+      if (!item.name.trim()) {
+        setError('Todos los repuestos agregados deben tener un nombre o descripción');
+        return;
+      }
+    }
     setError('');
     setLoading(true);
 
@@ -106,20 +115,36 @@ export default function QuoteModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer_id: customerId || null,
-          vehicle_info: vehicleInfo || null,
-          vin: vin || null,
-          vat_rate: vatRate,
-          notes: notes || null,
+          vehicle_info: vehicleInfo.trim() || null,
+          vin: vin.trim() || null,
+          vat_rate: Number(vatRate) || 0,
+          notes: notes.trim() || null,
           valid_until: validUntil || null,
-          items,
+          items: items.map((i) => ({
+            ...i,
+            sku: i.sku?.trim() || 'VARIOS',
+            name: i.name.trim(),
+            quantity: Number(i.quantity) || 1,
+            unit_price: Number(i.unit_price) || 0,
+          })),
           businessId,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? 'Error al guardar'); return; }
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        // En caso de respuesta sin JSON
+      }
+
+      if (!res.ok) {
+        setError(data.error ?? 'Error al guardar presupuesto');
+        return;
+      }
       onSaved(data.quote);
-    } catch {
-      setError('Error de conexión');
+    } catch (err: any) {
+      setError(err?.message || 'Error de conexión al guardar presupuesto');
     } finally {
       setLoading(false);
     }
