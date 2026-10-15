@@ -2,17 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sql } from '@/lib/db';
 import { getSession } from '@/lib/session';
+import { logAudit } from '@/lib/audit';
 
 const quoteItemSchema = z.object({
-  product_id: z.string().uuid().optional(),
+  product_id: z.string().min(1).optional(),
   sku: z.string().min(1),
   name: z.string().min(1),
+  brand: z.string().max(100).optional().nullable(),
   quantity: z.number().int().positive(),
   unit_price: z.number().min(0),
 });
 
 const quoteSchema = z.object({
-  customer_id: z.string().uuid().nullable().optional(),
+  customer_id: z.string().min(1).nullable().optional(),
   vehicle_info: z.string().max(200).nullable().optional(),
   vin: z.string().max(50).nullable().optional(),
   vat_rate: z.number().min(0).max(100).default(21),
@@ -98,6 +100,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const rows = await sql`SELECT name FROM customers WHERE id = ${d.customer_id} LIMIT 1`;
     customerName = (rows[0] as { name: string } | undefined)?.name ?? null;
   }
+
+  await logAudit({
+    businessId,
+    userId: session.userId,
+    userName: session.fullName || session.email,
+    userRole: session.role,
+    action: 'PRESUPUESTO_CREADO',
+    details: `Presupuesto ${quoteNumber} creado para ${customerName ?? 'Consumidor'} (${d.items.length} ítems) por $${Number(total).toLocaleString('es-AR')}`,
+    amount: Number(total),
+  });
 
   return NextResponse.json({ quote: { ...quote, customer_name: customerName } }, { status: 201 });
 }

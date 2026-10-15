@@ -1,7 +1,11 @@
 // ============================================================
-// Repuesto Control – Almacenamiento Demo en memoria
+// RR Stock – Almacenamiento local persistente
 // Fallback automático cuando no hay conexión a Neon Postgres
 // ============================================================
+
+import fs from 'fs';
+import path from 'path';
+import type { UserRole, ExpenseCategory, AuditActionType } from '@/types';
 
 export interface MockBusiness {
   id: string;
@@ -35,7 +39,7 @@ export interface MockUser {
   email: string;
   password_hash: string;
   full_name: string;
-  role: 'superadmin' | 'admin' | 'manager' | 'seller';
+  role: UserRole;
   is_active: boolean;
   last_login_at: string | null;
   created_at: string;
@@ -72,19 +76,67 @@ export interface MockProduct {
   updated_at: string;
 }
 
+export interface MockSaleItem {
+  id: string;
+  sale_id: string;
+  product_id: string | null;
+  sku: string;
+  name: string;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+}
+
 export interface MockSale {
   id: string;
   business_id: string;
   customer_id: string | null;
-  customer_name?: string;
+  customer_name?: string | null;
   seller_id: string | null;
-  seller_name?: string;
-  status: string;
+  seller_name?: string | null;
+  status: 'pending' | 'paid' | 'cancelled';
   total: number;
   notes: string | null;
   sale_date: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface MockExpense {
+  id: string;
+  business_id: string;
+  title: string;
+  category: ExpenseCategory;
+  amount: number;
+  expense_date: string;
+  notes: string | null;
+  created_by_id: string | null;
+  created_by_name?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MockAuditLog {
+  id: string;
+  business_id: string;
+  user_id: string;
+  user_name: string;
+  user_role: UserRole;
+  action: AuditActionType;
+  details: string;
+  amount?: number | null;
+  created_at: string;
+}
+
+export interface MockQuoteItem {
+  id: string;
+  quote_id: string;
+  product_id: string | null;
+  sku: string;
+  name: string;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
 }
 
 export interface MockQuote {
@@ -94,7 +146,7 @@ export interface MockQuote {
   customer_name?: string;
   template_id: string | null;
   quote_number: string;
-  status: string;
+  status: 'draft' | 'sent' | 'accepted' | 'rejected';
   vehicle_info: string | null;
   vin: string | null;
   subtotal: number;
@@ -120,331 +172,363 @@ export interface MockQuoteTemplate {
   updated_at: string;
 }
 
+export interface MockSalary {
+  id: string;
+  business_id: string;
+  user_id?: string | null;
+  employee_name: string;
+  employee_role: string;
+  period: string;
+  base_amount: number;
+  bonus_amount: number;
+  deductions_amount: number;
+  total_amount: number;
+  status: 'pending' | 'paid';
+  payment_date?: string | null;
+  payment_method?: 'efectivo' | 'transferencia' | 'cheque' | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const STORAGE_FILE = process.env.VERCEL
+  ? path.join('/tmp', 'mock-db.json')
+  : path.join(process.cwd(), '.data', 'mock-db.json');
+
 class MockDatabase {
-  businesses: MockBusiness[] = [
-    {
-      id: '11111111-0000-0000-0000-000000000001',
-      name: 'Repuestos García',
-      slug: 'garcia-repuestos',
-      logo_url: null,
-      address: 'Av. Rivadavia 4500, CABA',
-      phone: '+54 11 4444-5555',
-      tax_id: '20-12345678-9',
-      created_at: '2026-01-10T10:00:00Z',
-      updated_at: '2026-01-10T10:00:00Z',
-    },
-  ];
+  businesses: MockBusiness[] = [];
+  subscriptions: MockSubscription[] = [];
+  users: MockUser[] = [];
+  customers: MockCustomer[] = [];
+  products: MockProduct[] = [];
+  sales: MockSale[] = [];
+  saleItems: MockSaleItem[] = [];
+  expenses: MockExpense[] = [];
+  auditLogs: MockAuditLog[] = [];
+  quotes: MockQuote[] = [];
+  quoteItems: MockQuoteItem[] = [];
+  quoteTemplates: MockQuoteTemplate[] = [];
+  salaries: MockSalary[] = [];
 
-  subscriptions: MockSubscription[] = [
-    {
-      id: 'sub-1',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      type: 'monthly',
-      status: 'active',
-      amount: 15000.0,
-      starts_at: '2026-09-25',
-      expires_at: '2026-10-25',
-      last_payment_at: '2026-09-25',
-      notes: 'Abono mensual en término',
-      created_at: '2026-01-10T10:00:00Z',
-      updated_at: '2026-01-10T10:00:00Z',
-    },
-  ];
+  constructor() {
+    this.init();
+  }
 
-  users: MockUser[] = [
-    {
-      id: 'aaaaaaaa-0000-0000-0000-000000000001',
-      business_id: null,
-      email: 'superadmin@repuestocontrol.com',
-      password_hash: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj2NQFfVHHIy',
-      full_name: 'Super Administrador',
-      role: 'superadmin',
-      is_active: true,
-      last_login_at: null,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z',
-    },
-    {
-      id: 'aaaaaaaa-0000-0000-0000-000000000002',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      email: 'admin@garcia.com',
-      password_hash: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj2NQFfVHHIy',
-      full_name: 'Carlos García',
-      role: 'admin',
-      is_active: true,
-      last_login_at: null,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z',
-    },
-    {
-      id: 'aaaaaaaa-0000-0000-0000-000000000003',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      email: 'manager@garcia.com',
-      password_hash: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj2NQFfVHHIy',
-      full_name: 'Ana Torres',
-      role: 'manager',
-      is_active: true,
-      last_login_at: null,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z',
-    },
-    {
-      id: 'aaaaaaaa-0000-0000-0000-000000000004',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      email: 'vendedor@garcia.com',
-      password_hash: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj2NQFfVHHIy',
-      full_name: 'Lucas Martínez',
-      role: 'seller',
-      is_active: true,
-      last_login_at: null,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z',
-    },
-  ];
+  private init() {
+    // Intentar cargar desde el archivo persistente en disco
+    try {
+      if (fs.existsSync(STORAGE_FILE)) {
+        const raw = fs.readFileSync(STORAGE_FILE, 'utf-8');
+        const data = JSON.parse(raw);
+        this.businesses = data.businesses || [];
+        this.subscriptions = data.subscriptions || [];
+        this.users = data.users || [];
+        this.customers = data.customers || [];
+        this.products = data.products || [];
+        this.sales = data.sales || [];
+        this.saleItems = data.saleItems || [];
+        this.expenses = data.expenses || [];
+        this.auditLogs = data.auditLogs || [];
+        this.quotes = data.quotes || [];
+        this.quoteItems = data.quoteItems || [];
+        this.quoteTemplates = data.quoteTemplates || [];
+        this.salaries = data.salaries || [];
+        return;
+      }
+    } catch (e) {
+      console.warn('[MockDB] No se pudo leer almacenamiento en disco, inicializando datos limpios:', e);
+    }
 
-  customers: MockCustomer[] = [
-    {
-      id: 'cccccccc-0000-0000-0000-000000000001',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      name: 'Juan Pérez',
-      email: 'juan@email.com',
-      phone: '+54 11 1234-5678',
-      address: 'Av. Corrientes 1234',
-      tax_id: '20-98765432-1',
-      notes: 'Cliente habitual de repuestos Toyota',
-      created_at: '2026-02-10T10:00:00Z',
-      updated_at: '2026-02-10T10:00:00Z',
-    },
-    {
-      id: 'cccccccc-0000-0000-0000-000000000002',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      name: 'María López',
-      email: 'maria@email.com',
-      phone: '+54 11 9876-5432',
-      address: 'Belgrano 456',
-      tax_id: '27-11223344-5',
-      notes: 'Taller mecánico La Tuerca',
-      created_at: '2026-02-15T10:00:00Z',
-      updated_at: '2026-02-15T10:00:00Z',
-    },
-    {
-      id: 'cccccccc-0000-0000-0000-000000000003',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      name: 'Roberto Silva',
-      email: 'roberto@email.com',
-      phone: '+54 11 5555-6666',
-      address: 'Av. San Martín 789',
-      tax_id: '20-55556666-7',
-      notes: 'Flota de remises',
-      created_at: '2026-02-20T10:00:00Z',
-      updated_at: '2026-02-20T10:00:00Z',
-    },
-  ];
+    // Si no existe, inicializar con el negocio solicitado y los datos en CERO
+    this.businesses = [
+      {
+        id: '11111111-0000-0000-0000-000000000001',
+        name: 'RR REPUESTOS & LUBRICANTES',
+        slug: 'rr-repuestos-lubricantes',
+        logo_url: null,
+        address: 'Av. Martín Berho 532, San Miguel de Tucumán',
+        phone: '3815853438 - 3816241623',
+        tax_id: '20-33703597-4',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
 
-  products: MockProduct[] = [
-    {
-      id: 'p1',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      sku: 'FIL-001',
-      name: 'Filtro de Aceite Toyota',
-      description: 'Filtro para Corolla / Hilux',
-      category: 'Filtros',
-      supplier: 'AutoParts SA',
-      price: 2500,
-      cost: 1800,
-      quantity: 45,
-      min_stock: 10,
-      is_active: true,
-      created_at: '2026-01-10T10:00:00Z',
-      updated_at: '2026-01-10T10:00:00Z',
-    },
-    {
-      id: 'p2',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      sku: 'FRE-001',
-      name: 'Pastillas de Freno Delanteras',
-      description: 'Pastillas cerámicas',
-      category: 'Frenos',
-      supplier: 'FrenoPro',
-      price: 8900,
-      cost: 6200,
-      quantity: 8,
-      min_stock: 5,
-      is_active: true,
-      created_at: '2026-01-11T10:00:00Z',
-      updated_at: '2026-01-11T10:00:00Z',
-    },
-    {
-      id: 'p3',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      sku: 'ACE-001',
-      name: 'Aceite Motor 10W40 1L',
-      description: 'Semi-sintético Mobil Super',
-      category: 'Lubricantes',
-      supplier: 'Mobil',
-      price: 1200,
-      cost: 800,
-      quantity: 120,
-      min_stock: 20,
-      is_active: true,
-      created_at: '2026-01-12T10:00:00Z',
-      updated_at: '2026-01-12T10:00:00Z',
-    },
-    {
-      id: 'p4',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      sku: 'BUJ-001',
-      name: 'Bujías NGK BPR6ES (x4)',
-      description: 'Juego de 4 bujías',
-      category: 'Encendido',
-      supplier: 'NGK',
-      price: 3200,
-      cost: 2100,
-      quantity: 3,
-      min_stock: 8,
-      is_active: true,
-      created_at: '2026-01-13T10:00:00Z',
-      updated_at: '2026-01-13T10:00:00Z',
-    },
-    {
-      id: 'p5',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      sku: 'COR-001',
-      name: 'Correa de Distribución',
-      description: 'Correa dentada 121 dientes',
-      category: 'Motor',
-      supplier: 'Gates',
-      price: 12500,
-      cost: 9000,
-      quantity: 15,
-      min_stock: 3,
-      is_active: true,
-      created_at: '2026-01-14T10:00:00Z',
-      updated_at: '2026-01-14T10:00:00Z',
-    },
-    {
-      id: 'p6',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      sku: 'AMO-001',
-      name: 'Amortiguador Trasero',
-      description: 'Amortiguador a gas',
-      category: 'Suspensión',
-      supplier: 'Monroe',
-      price: 18000,
-      cost: 13000,
-      quantity: 6,
-      min_stock: 2,
-      is_active: true,
-      created_at: '2026-01-15T10:00:00Z',
-      updated_at: '2026-01-15T10:00:00Z',
-    },
-    {
-      id: 'p7',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      sku: 'BAT-001',
-      name: 'Batería 12V 60Ah',
-      description: 'Libre mantenimiento',
-      category: 'Eléctrico',
-      supplier: 'Bosch',
-      price: 35000,
-      cost: 25000,
-      quantity: 4,
-      min_stock: 2,
-      is_active: true,
-      created_at: '2026-01-16T10:00:00Z',
-      updated_at: '2026-01-16T10:00:00Z',
-    },
-    {
-      id: 'p8',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      sku: 'FIL-002',
-      name: 'Filtro de Aire Universal',
-      description: 'Filtro cónico de alto flujo',
-      category: 'Filtros',
-      supplier: 'AutoParts SA',
-      price: 1800,
-      cost: 1200,
-      quantity: 30,
-      min_stock: 10,
-      is_active: true,
-      created_at: '2026-01-17T10:00:00Z',
-      updated_at: '2026-01-17T10:00:00Z',
-    },
-  ];
+    this.subscriptions = [
+      {
+        id: 'sub-1',
+        business_id: '11111111-0000-0000-0000-000000000001',
+        type: 'monthly',
+        status: 'active',
+        amount: 25000.0,
+        starts_at: '2026-01-01',
+        expires_at: '2028-12-31',
+        last_payment_at: '2026-10-01',
+        notes: 'Abono Premium Activo',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
 
-  sales: MockSale[] = [
-    {
-      id: 's1',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      customer_id: 'cccccccc-0000-0000-0000-000000000001',
-      customer_name: 'Juan Pérez',
-      seller_id: 'aaaaaaaa-0000-0000-0000-000000000004',
-      seller_name: 'Lucas Martínez',
-      status: 'paid',
-      total: 11400.0,
-      notes: 'Pago en efectivo',
-      sale_date: '2026-10-09',
-      created_at: '2026-10-09T14:30:00Z',
-      updated_at: '2026-10-09T14:30:00Z',
-    },
-    {
-      id: 's2',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      customer_id: 'cccccccc-0000-0000-0000-000000000002',
-      customer_name: 'María López',
-      seller_id: 'aaaaaaaa-0000-0000-0000-000000000002',
-      seller_name: 'Carlos García',
-      status: 'paid',
-      total: 35000.0,
-      notes: 'Transferencia bancaria',
-      sale_date: '2026-10-08',
-      created_at: '2026-10-08T11:00:00Z',
-      updated_at: '2026-10-08T11:00:00Z',
-    },
-  ];
+    // Administradores requeridos con hash de bcrypt de 'rradmin123_'
+    const hashRradmin123 = '$2b$10$MJqzGB7nZM3Pni6hBa1oxOFu2tz8oghUh/xnd.78k5i8kXhcP7c3K';
 
-  quotes: MockQuote[] = [
-    {
-      id: 'q1',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      customer_id: 'cccccccc-0000-0000-0000-000000000001',
-      customer_name: 'Juan Pérez',
-      template_id: 't1',
-      quote_number: 'PRE-0001',
-      status: 'sent',
-      vehicle_info: 'Toyota Corolla 2018 1.8 XEI',
-      vin: '8AJBA38E9J1234567',
-      subtotal: 11400.0,
-      vat_rate: 21.0,
-      vat_amount: 2394.0,
-      total: 13794.0,
-      notes: 'Incluye service completo de fluidos y pastillas',
-      valid_until: '2026-10-25',
-      created_at: '2026-10-05T10:00:00Z',
-      updated_at: '2026-10-05T10:00:00Z',
-    },
-  ];
+    this.users = [
+      {
+        id: 'aaaaaaaa-0000-0000-0000-000000000001',
+        business_id: null,
+        email: 'superadmin@repuestocontrol.com',
+        password_hash: hashRradmin123,
+        full_name: 'Super Administrador',
+        role: 'superadmin',
+        is_active: true,
+        last_login_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'aaaaaaaa-0000-0000-0000-000000000002',
+        business_id: '11111111-0000-0000-0000-000000000001',
+        email: 'admin1@admin.com',
+        password_hash: hashRradmin123,
+        full_name: 'Emiliano',
+        role: 'admin',
+        is_active: true,
+        last_login_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'aaaaaaaa-0000-0000-0000-000000000003',
+        business_id: '11111111-0000-0000-0000-000000000001',
+        email: 'admin2@admin.com',
+        password_hash: hashRradmin123,
+        full_name: 'Freddy',
+        role: 'admin',
+        is_active: true,
+        last_login_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
 
-  quoteTemplates: MockQuoteTemplate[] = [
-    {
-      id: 't1',
-      business_id: '11111111-0000-0000-0000-000000000001',
-      business_name: 'Repuestos García',
-      logo_url: null,
-      title: 'PRESUPUESTO',
-      footer_text: 'Este presupuesto tiene una validez de 7 días hábiles.',
-      payment_terms: 'Pago al contado. Transferencia bancaria o efectivo.',
-      vat_rate: 21.0,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z',
-    },
-  ];
+    // Datos iniciales en CERO para el negocio
+    this.customers = [];
+    this.products = [];
+    this.sales = [];
+    this.saleItems = [];
+    this.expenses = [];
+    this.auditLogs = [];
+    this.quotes = [];
+    this.quoteItems = [];
+    this.salaries = [];
+
+    this.quoteTemplates = [
+      {
+        id: 't1',
+        business_id: '11111111-0000-0000-0000-000000000001',
+        business_name: 'RR REPUESTOS & LUBRICANTES',
+        logo_url: null,
+        title: 'PRESUPUESTO',
+        footer_text: 'Validez de la oferta: 7 días | Disponibilidad: Inmediata / A pedido | Tel: 3815853438 - 3816241623',
+        payment_terms: 'Forma de pago: Efectivo / Transferencia',
+        vat_rate: 21.0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
+
+    this.save();
+  }
+
+  public save() {
+    try {
+      const dir = path.dirname(STORAGE_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(
+        STORAGE_FILE,
+        JSON.stringify(
+          {
+            businesses: this.businesses,
+            subscriptions: this.subscriptions,
+            users: this.users,
+            customers: this.customers,
+            products: this.products,
+            sales: this.sales,
+            saleItems: this.saleItems,
+            expenses: this.expenses,
+            auditLogs: this.auditLogs,
+            quotes: this.quotes,
+            quoteItems: this.quoteItems,
+            quoteTemplates: this.quoteTemplates,
+            salaries: this.salaries,
+          },
+          null,
+          2
+        ),
+        'utf-8'
+      );
+    } catch (err) {
+      console.warn('[MockDB] Error al guardar datos en disco:', err);
+    }
+  }
 
   handleQuery(queryText: string, params: any[] = []): any[] {
     const q = queryText.toLowerCase().trim();
 
-    // 1. SELECT users (login o lista)
-    if (q.includes('from users')) {
+    // ----------------------------------------------------
+    // 1. AUDIT LOGS (Monitoreo)
+    // ----------------------------------------------------
+    if (q.includes('audit_logs')) {
+      if (q.includes('insert into audit_logs')) {
+        // params: [business_id, user_id, user_name, user_role, action, details, amount]
+        const newLog: MockAuditLog = {
+          id: 'log-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+          business_id: params[0],
+          user_id: params[1],
+          user_name: params[2],
+          user_role: params[3],
+          action: params[4],
+          details: params[5],
+          amount: params[6] != null ? Number(params[6]) : null,
+          created_at: new Date().toISOString(),
+        };
+        this.auditLogs.unshift(newLog);
+        this.save();
+        return [newLog];
+      }
+      // SELECT from audit_logs
+      const bId = params[0];
+      let results = this.auditLogs.filter((l) => !bId || l.business_id === bId);
+      return results;
+    }
+
+    // ----------------------------------------------------
+    // 2. EXPENSES (Gastos)
+    // ----------------------------------------------------
+    if (q.includes('expenses')) {
+      if (q.includes('insert into expenses')) {
+        // params: [business_id, title, category, amount, expense_date, notes, created_by_id, created_by_name]
+        const newExp: MockExpense = {
+          id: 'exp-' + Date.now(),
+          business_id: params[0],
+          title: params[1],
+          category: params[2],
+          amount: Number(params[3]) || 0,
+          expense_date: params[4] || new Date().toISOString().substring(0, 10),
+          notes: params[5] ?? null,
+          created_by_id: params[6] ?? null,
+          created_by_name: params[7] ?? null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        this.expenses.unshift(newExp);
+        this.save();
+        return [newExp];
+      }
+
+      if (q.includes('delete from expenses')) {
+        const id = params[0];
+        const idx = this.expenses.findIndex((e) => e.id === id);
+        if (idx >= 0) {
+          const removed = this.expenses.splice(idx, 1)[0];
+          this.save();
+          return [removed];
+        }
+        return [];
+      }
+
+      if (q.includes('sum(amount)')) {
+        const bId = params[0];
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10);
+        const total = this.expenses
+          .filter((e) => (!bId || e.business_id === bId) && e.expense_date >= startOfMonth)
+          .reduce((sum, e) => sum + e.amount, 0);
+        return [{ total_expenses: total, count: this.expenses.length }];
+      }
+
+      const bId = params[0];
+      return this.expenses
+        .filter((e) => !bId || e.business_id === bId)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+
+    // ----------------------------------------------------
+    // 2.1 SALARIES (Sueldos y Liquidaciones)
+    // ----------------------------------------------------
+    if (q.includes('salaries')) {
+      if (q.includes('insert into salaries')) {
+        const newSalary: MockSalary = {
+          id: 'sal-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+          business_id: params[0],
+          user_id: params[1] ?? null,
+          employee_name: params[2],
+          employee_role: params[3] || 'Vendedor',
+          period: params[4] || new Date().toISOString().substring(0, 7),
+          base_amount: Number(params[5]) || 0,
+          bonus_amount: Number(params[6]) || 0,
+          deductions_amount: Number(params[7]) || 0,
+          total_amount: Number(params[8]) || (Number(params[5]) || 0) + (Number(params[6]) || 0) - (Number(params[7]) || 0),
+          status: (params[9] as any) || 'pending',
+          payment_date: params[10] ?? null,
+          payment_method: params[11] ?? null,
+          notes: params[12] ?? null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        this.salaries.unshift(newSalary);
+        this.save();
+        return [newSalary];
+      }
+
+      if (q.includes('update salaries')) {
+        const idParam = params.find(p => typeof p === 'string' && (p.startsWith('sal-') || p.length > 20)) || params[params.length - 2] || params[params.length - 1];
+        const salary = this.salaries.find(s => s.id === idParam);
+        if (salary) {
+          if (q.includes('status')) {
+            const statusVal = params.find(p => p === 'paid' || p === 'pending');
+            if (statusVal) salary.status = statusVal;
+          }
+          const methodVal = params.find(p => p === 'efectivo' || p === 'transferencia' || p === 'cheque');
+          if (methodVal) salary.payment_method = methodVal;
+          salary.payment_date = new Date().toISOString().substring(0, 10);
+          salary.updated_at = new Date().toISOString();
+          this.save();
+          return [salary];
+        }
+        return [];
+      }
+
+      if (q.includes('delete from salaries')) {
+        const idParam = params[0];
+        const idx = this.salaries.findIndex(s => s.id === idParam);
+        if (idx >= 0) {
+          const removed = this.salaries.splice(idx, 1)[0];
+          this.save();
+          return [removed];
+        }
+        return [];
+      }
+
+      if (q.includes('where id =')) {
+        const idParam = params[0];
+        const salary = this.salaries.find(s => s.id === idParam);
+        return salary ? [salary] : [];
+      }
+
+      const bId = params[0];
+      return this.salaries
+        .filter(s => !bId || s.business_id === bId)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+
+    // ----------------------------------------------------
+    // 3. USERS (Autenticación y Equipo)
+    // ----------------------------------------------------
+    if (q.includes('from users') || q.includes('update users') || q.includes('insert into users')) {
       if (q.includes('where u.email =') || q.includes('where email =')) {
         const email = String(params[0] ?? '').toLowerCase().trim();
         const user = this.users.find((u) => u.email.toLowerCase() === email);
@@ -465,71 +549,479 @@ class MockDatabase {
           },
         ];
       }
+
+      if (q.includes('where u.id =') || q.includes('where id =')) {
+        const id = params[0];
+        const user = this.users.find((u) => u.id === id);
+        if (!user) return [];
+        return [user];
+      }
+
+      if (q.includes('insert into users')) {
+        // [business_id, email, password_hash, full_name, role, is_active]
+        const newUser: MockUser = {
+          id: 'u-' + Date.now(),
+          business_id: params[0],
+          email: String(params[1]).toLowerCase().trim(),
+          password_hash: params[2],
+          full_name: params[3],
+          role: params[4],
+          is_active: params[5] !== false,
+          last_login_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        this.users.unshift(newUser);
+        this.save();
+        return [newUser];
+      }
+
+      if (q.includes('update users')) {
+        if (q.includes('last_login_at = now()')) {
+          const id = params[0];
+          const user = this.users.find((u) => u.id === id);
+          if (user) user.last_login_at = new Date().toISOString();
+          this.save();
+          return [{ success: true }];
+        }
+        // General user update
+        const id = params[params.length - 1];
+        const user = this.users.find((u) => u.id === id);
+        if (user) {
+          if (q.includes('is_active =')) {
+            user.is_active = Boolean(params[0]);
+          }
+          if (q.includes('password_hash =')) {
+            user.password_hash = params[0];
+          }
+          user.updated_at = new Date().toISOString();
+          this.save();
+          return [user];
+        }
+        return [{ success: true }];
+      }
+
       if (q.includes('count(*)')) {
         return [{ count: this.users.filter((u) => u.role !== 'superadmin').length }];
       }
-      return this.users.map((u) => {
-        const b = this.businesses.find((x) => x.id === u.business_id);
-        return {
-          ...u,
-          business_name: b?.name ?? null,
+
+      // SELECT all users for business (Equipo)
+      const bId = params[0];
+      return this.users
+        .filter((u) => !bId || u.business_id === bId)
+        .map((u) => {
+          const b = this.businesses.find((x) => x.id === u.business_id);
+          return {
+            ...u,
+            business_name: b?.name ?? null,
+          };
+        });
+    }
+
+    // ----------------------------------------------------
+    // 4. PRODUCTS (Catálogo y Stock)
+    // ----------------------------------------------------
+    if (q.includes('from products') || q.includes('insert into products') || q.includes('update products')) {
+      if (q.includes('insert into products')) {
+        const newProd: MockProduct = {
+          id: 'p-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5),
+          business_id: params[0],
+          sku: params[1],
+          name: params[2],
+          description: params[3] ?? null,
+          category: params[4] ?? null,
+          supplier: params[5] ?? null,
+          price: Number(params[6]) || 0,
+          cost: Number(params[7]) || 0,
+          quantity: Number(params[8]) || 0,
+          min_stock: Number(params[9]) || 0,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         };
-      });
-    }
+        this.products.unshift(newProd);
+        this.save();
+        return [newProd];
+      }
 
-    // 2. UPDATE users
-    if (q.includes('update users')) {
-      return [{ success: true }];
-    }
+      // 1. UPDATE products SET quantity = quantity - $1 (Deducción atómica por venta)
+      if (q.includes('update products') && q.includes('quantity -')) {
+        const deduction = Number(params[0]) || 0;
+        const prodId = params[1];
+        const prod = this.products.find((p) => p.id === prodId);
+        if (prod) {
+          prod.quantity = Math.max(0, prod.quantity - deduction);
+          prod.updated_at = new Date().toISOString();
+          this.save();
+          return [prod];
+        }
+        return [];
+      }
 
-    // 3. SELECT products
-    if (q.includes('from products')) {
+      // 2. UPDATE products SET quantity = quantity + $1 (Ajuste o carga de stock)
+      if (q.includes('update products') && q.includes('quantity +')) {
+        const adj = Number(params[0]) || 0;
+        const prodId = params[1];
+        const prod = this.products.find((p) => p.id === prodId);
+        if (prod) {
+          if (prod.quantity + adj < 0) return []; // stock negativo no permitido
+          prod.quantity += adj;
+          prod.updated_at = new Date().toISOString();
+          this.save();
+          return [prod];
+        }
+        return [];
+      }
+
+      // 3. Soft delete: UPDATE products SET is_active = FALSE
+      if (q.includes('update products') && q.includes('is_active = false')) {
+        const prodId = params[0];
+        const prod = this.products.find((p) => p.id === prodId);
+        if (prod) {
+          prod.is_active = false;
+          prod.updated_at = new Date().toISOString();
+          this.save();
+          return [prod];
+        }
+        return [];
+      }
+
+      // 4. General UPDATE products
+      if (q.includes('update products')) {
+        const id = params[params.length - 1];
+        const prod = this.products.find((p) => p.id === id);
+        if (prod) {
+          if (params[0] !== undefined && params[0] !== null) prod.sku = params[0];
+          if (params[1] !== undefined && params[1] !== null) prod.name = params[1];
+          if (params[2] !== undefined) prod.description = params[2];
+          if (params[3] !== undefined) prod.category = params[3];
+          if (params[4] !== undefined) prod.supplier = params[4];
+          if (params[5] !== undefined && params[5] !== null) prod.price = Number(params[5]);
+          if (params[6] !== undefined && params[6] !== null) prod.cost = Number(params[6]);
+          if (params[7] !== undefined && params[7] !== null) prod.quantity = Number(params[7]);
+          if (params[8] !== undefined && params[8] !== null) prod.min_stock = Number(params[8]);
+          prod.updated_at = new Date().toISOString();
+          this.save();
+          return [prod];
+        }
+        return [];
+      }
+
+      // 5. SELECT single product by ID: WHERE id = ...
+      if (q.includes('where id =') || q.includes('where p.id =')) {
+        const prodId = params[0];
+        const prod = this.products.find((p) => p.id === prodId);
+        if (!prod) return [];
+        return [prod];
+      }
+
+      // 6. Low stock count: SELECT count(*) FROM products WHERE quantity <= min_stock
       if (q.includes('count(*)')) {
-        const low = this.products.filter((p) => p.quantity <= p.min_stock && p.is_active).length;
+        const low = this.products.filter((p) => p.is_active && p.quantity <= p.min_stock).length;
         return [{ count: low }];
       }
-      const bId = params[0] || '11111111-0000-0000-0000-000000000001';
-      return this.products.filter((p) => !bId || p.business_id === bId);
+
+      // Low stock list
+      if (q.includes('quantity <= min_stock')) {
+        const bId = params[0];
+        return this.products
+          .filter((p) => (!bId || p.business_id === bId) && p.is_active && p.quantity <= p.min_stock)
+          .sort((a, b) => a.quantity - b.quantity)
+          .slice(0, 5);
+      }
+
+      // Normal SELECT products list
+      const bId = params[0];
+      const search = params[1] ? String(params[1]).toLowerCase() : '';
+      return this.products
+        .filter((p) => {
+          if (!p.is_active) return false;
+          if (bId && p.business_id !== bId) return false;
+          if (search) {
+            const cleanSearch = search.replace(/%/g, '');
+            if (
+              !p.name.toLowerCase().includes(cleanSearch) &&
+              !p.sku.toLowerCase().includes(cleanSearch)
+            ) {
+              return false;
+            }
+          }
+          return true;
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    // 4. SELECT customers
-    if (q.includes('from customers')) {
+    // ----------------------------------------------------
+    // 5. SALES & SALE_ITEMS (Ventas)
+    // ----------------------------------------------------
+    if (q.includes('sales') || q.includes('sale_items')) {
+      if (q.includes('insert into sales')) {
+        // [business_id, customer_id, seller_id, status, total, notes, sale_date]
+        const seller = this.users.find((u) => u.id === params[2]);
+        const customer = this.customers.find((c) => c.id === params[1]);
+        const newSale: MockSale = {
+          id: 's-' + Date.now(),
+          business_id: params[0],
+          customer_id: params[1] ?? null,
+          customer_name: customer?.name ?? 'Consumidor Final',
+          seller_id: params[2] ?? null,
+          seller_name: seller?.full_name ?? null,
+          status: params[3] ?? 'paid',
+          total: Number(params[4]) || 0,
+          notes: params[5] ?? null,
+          sale_date: params[6] ?? new Date().toISOString().substring(0, 10),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        this.sales.unshift(newSale);
+        this.save();
+        return [newSale];
+      }
+
+      if (q.includes('insert into sale_items')) {
+        const item: MockSaleItem = {
+          id: 'si-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5),
+          sale_id: params[0],
+          product_id: params[1] ?? null,
+          sku: params[2],
+          name: params[3],
+          quantity: Number(params[4]) || 1,
+          unit_price: Number(params[5]) || 0,
+          subtotal: (Number(params[4]) || 1) * (Number(params[5]) || 0),
+        };
+        this.saleItems.push(item);
+        this.save();
+        return [item];
+      }
+
+      if (q.includes('update sales') && q.includes('status =')) {
+        const newStatus = params[0];
+        const saleId = params[1];
+        const sale = this.sales.find((s) => s.id === saleId);
+        if (sale) {
+          sale.status = newStatus;
+          sale.updated_at = new Date().toISOString();
+          this.save();
+          return [sale];
+        }
+        return [];
+      }
+
+      if (q.includes('sum(total)') || q.includes('count_month')) {
+        const bId = params[0];
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().substring(0, 10);
+        const filteredSales = this.sales.filter(
+          (s) => (!bId || s.business_id === bId) && s.status === 'paid' && s.sale_date >= startOfMonth
+        );
+        const total = filteredSales.reduce((sum, s) => sum + s.total, 0);
+        return [{ total_month: total, count_month: filteredSales.length }];
+      }
+
+      if (q.includes('count(distinct customer_id)')) {
+        const bId = params[0];
+        const customersWithSales = new Set(
+          this.sales.filter((s) => (!bId || s.business_id === bId) && s.customer_id).map((s) => s.customer_id)
+        );
+        return [{ count: customersWithSales.size }];
+      }
+
+      if (q.includes('to_char(date_trunc') || q.includes('group by date_trunc')) {
+        // Ventas agrupadas por mes para el gráfico
+        const bId = params[0];
+        const monthsMap: Record<string, number> = {};
+        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const now = new Date();
+
+        // Inicializar últimos 6 meses
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const key = `${monthNames[d.getMonth()]}`;
+          monthsMap[key] = 0;
+        }
+
+        this.sales
+          .filter((s) => (!bId || s.business_id === bId) && s.status === 'paid')
+          .forEach((s) => {
+            const d = new Date(s.sale_date);
+            const key = monthNames[d.getMonth()];
+            if (monthsMap[key] !== undefined) {
+              monthsMap[key] += s.total;
+            }
+          });
+
+        return Object.entries(monthsMap).map(([month, total]) => ({ month, total }));
+      }
+
+      if (q.includes('where s.id =') || q.includes('where id =')) {
+        const id = params[0];
+        const sale = this.sales.find((s) => s.id === id);
+        if (!sale) return [];
+        return [sale];
+      }
+
+      // SELECT sales list
+      const bId = params[0];
+      return this.sales
+        .filter((s) => !bId || s.business_id === bId)
+        .map((s) => {
+          const cust = this.customers.find((c) => c.id === s.customer_id);
+          const seller = this.users.find((u) => u.id === s.seller_id);
+          return {
+            ...s,
+            customer_name: cust?.name ?? s.customer_name ?? 'Consumidor Final',
+            seller_name: seller?.full_name ?? s.seller_name ?? '—',
+          };
+        })
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+
+    // ----------------------------------------------------
+    // 6. CUSTOMERS (Clientes)
+    // ----------------------------------------------------
+    if (q.includes('customers')) {
+      if (q.includes('insert into customers')) {
+        const newCust: MockCustomer = {
+          id: 'c-' + Date.now(),
+          business_id: params[0],
+          name: params[1],
+          email: params[2] ?? null,
+          phone: params[3] ?? null,
+          address: params[4] ?? null,
+          tax_id: params[5] ?? null,
+          notes: params[6] ?? null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        this.customers.unshift(newCust);
+        this.save();
+        return [newCust];
+      }
+
+      if (q.includes('where id =') || q.includes('where c.id =')) {
+        const id = params[0];
+        const cust = this.customers.find((c) => c.id === id);
+        if (!cust) return [];
+        return [cust];
+      }
+
+      if (q.includes('update customers')) {
+        const id = params[params.length - 1];
+        const cust = this.customers.find((c) => c.id === id);
+        if (cust) {
+          if (params[0]) cust.name = params[0];
+          if (params[1] !== undefined) cust.email = params[1];
+          if (params[2] !== undefined) cust.phone = params[2];
+          if (params[3] !== undefined) cust.address = params[3];
+          if (params[4] !== undefined) cust.tax_id = params[4];
+          if (params[5] !== undefined) cust.notes = params[5];
+          cust.updated_at = new Date().toISOString();
+          this.save();
+          return [cust];
+        }
+        return [];
+      }
+
       if (q.includes('count(*)')) {
         return [{ count: this.customers.length }];
       }
-      const bId = params[0] || '11111111-0000-0000-0000-000000000001';
-      return this.customers.filter((c) => !bId || c.business_id === bId);
-    }
 
-    // 5. SELECT sales
-    if (q.includes('from sales')) {
-      if (q.includes('sum(total)') || q.includes('count_month')) {
-        const total = this.sales.reduce((sum, s) => sum + s.total, 0);
-        return [{ total_month: total, count_month: this.sales.length }];
-      }
-      if (q.includes('to_char(sale_date')) {
-        return [
-          { month: 'Sep 2026', total: 420000 },
-          { month: 'Oct 2026', total: 685000 },
-        ];
-      }
       const bId = params[0];
-      return this.sales.filter((s) => !bId || s.business_id === bId);
+      return this.customers
+        .filter((c) => !bId || c.business_id === bId)
+        .sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    // 6. SELECT quotes
-    if (q.includes('from quotes')) {
+    // ----------------------------------------------------
+    // 7. QUOTES & QUOTE_ITEMS & TEMPLATES (Presupuestos)
+    // ----------------------------------------------------
+    if (q.includes('quotes') || q.includes('quote_items') || q.includes('quote_templates')) {
+      if (q.includes('from quote_templates')) {
+        return this.quoteTemplates;
+      }
+
+      if (q.includes('insert into quotes')) {
+        const newQuote: MockQuote = {
+          id: 'q-' + Date.now(),
+          business_id: params[0],
+          customer_id: params[1] ?? null,
+          template_id: null,
+          quote_number: 'PRE-' + String(this.quotes.length + 1).padStart(4, '0'),
+          status: 'draft',
+          vehicle_info: params[3] ?? null,
+          vin: params[4] ?? null,
+          subtotal: Number(params[5]) || 0,
+          vat_rate: Number(params[6]) || 21,
+          vat_amount: Number(params[7]) || 0,
+          total: Number(params[8]) || 0,
+          notes: params[9] ?? null,
+          valid_until: params[10] ?? null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        this.quotes.unshift(newQuote);
+        this.save();
+        return [newQuote];
+      }
+
+      if (q.includes('insert into quote_items')) {
+        const item: MockQuoteItem = {
+          id: 'qi-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5),
+          quote_id: params[0],
+          product_id: params[1] ?? null,
+          sku: params[2],
+          name: params[3],
+          quantity: Number(params[4]) || 1,
+          unit_price: Number(params[5]) || 0,
+          subtotal: (Number(params[4]) || 1) * (Number(params[5]) || 0),
+        };
+        this.quoteItems.push(item);
+        this.save();
+        return [item];
+      }
+
+      if (q.includes('where id =') || q.includes('where q.id =')) {
+        const id = params[0];
+        const quote = this.quotes.find((qu) => qu.id === id);
+        if (!quote) return [];
+        return [quote];
+      }
+
+      if (q.includes('from quote_items where quote_id =')) {
+        const quoteId = params[0];
+        return this.quoteItems.filter((qi) => qi.quote_id === quoteId);
+      }
+
+      if (q.includes('update quotes') && q.includes('status =')) {
+        const newStatus = params[0];
+        const id = params[1];
+        const quote = this.quotes.find((qu) => qu.id === id);
+        if (quote) {
+          quote.status = newStatus;
+          quote.updated_at = new Date().toISOString();
+          this.save();
+          return [quote];
+        }
+        return [];
+      }
+
       const bId = params[0];
-      return this.quotes.filter((qu) => !bId || qu.business_id === bId);
+      return this.quotes
+        .filter((qu) => !bId || qu.business_id === bId)
+        .map((qu) => {
+          const cust = this.customers.find((c) => c.id === qu.customer_id);
+          return {
+            ...qu,
+            customer_name: cust?.name ?? 'Sin cliente',
+          };
+        })
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
 
-    // 7. SELECT quote_templates
-    if (q.includes('from quote_templates')) {
-      return this.quoteTemplates;
-    }
-
-    // 8. SELECT businesses
-    if (q.includes('from businesses')) {
+    // ----------------------------------------------------
+    // 8. BUSINESSES (Superadmin)
+    // ----------------------------------------------------
+    if (q.includes('businesses')) {
       if (q.includes('count(*)')) {
         return [{ count: this.businesses.length }];
       }
@@ -543,102 +1035,12 @@ class MockDatabase {
           created_at: b.created_at,
           sub_type: sub?.type ?? 'monthly',
           sub_status: sub?.status ?? 'active',
-          sub_amount: sub?.amount ?? 15000,
-          sub_expires_at: sub?.expires_at ?? '2026-10-25',
-          sub_last_payment: sub?.last_payment_at ?? '2026-09-25',
+          sub_amount: sub?.amount ?? 25000,
+          sub_expires_at: sub?.expires_at ?? '2028-12-31',
+          sub_last_payment: sub?.last_payment_at ?? '2026-10-01',
           user_count: usersCount,
         };
       });
-    }
-
-    // 9. INSERT / UPDATE productos, clientes, ventas, etc.
-    if (q.includes('insert into products')) {
-      const newProd: MockProduct = {
-        id: 'p-' + Date.now(),
-        business_id: params[0],
-        sku: params[1],
-        name: params[2],
-        description: params[3] ?? null,
-        category: params[4] ?? null,
-        supplier: params[5] ?? null,
-        price: Number(params[6]) || 0,
-        cost: Number(params[7]) || 0,
-        quantity: Number(params[8]) || 0,
-        min_stock: Number(params[9]) || 0,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      this.products.unshift(newProd);
-      return [newProd];
-    }
-
-    if (q.includes('update products') && q.includes('quantity +')) {
-      // Ajuste de stock
-      const id = params[1];
-      const adj = Number(params[0]) || 0;
-      const prod = this.products.find((p) => p.id === id);
-      if (prod) {
-        prod.quantity += adj;
-        return [prod];
-      }
-    }
-
-    if (q.includes('insert into customers')) {
-      const newCust: MockCustomer = {
-        id: 'c-' + Date.now(),
-        business_id: params[0],
-        name: params[1],
-        email: params[2] ?? null,
-        phone: params[3] ?? null,
-        address: params[4] ?? null,
-        tax_id: params[5] ?? null,
-        notes: params[6] ?? null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      this.customers.unshift(newCust);
-      return [newCust];
-    }
-
-    if (q.includes('insert into sales')) {
-      const newSale: MockSale = {
-        id: 's-' + Date.now(),
-        business_id: params[0],
-        customer_id: params[1] ?? null,
-        seller_id: params[2] ?? null,
-        status: params[3] ?? 'paid',
-        total: Number(params[4]) || 0,
-        notes: params[5] ?? null,
-        sale_date: params[6] ?? new Date().toISOString().substring(0, 10),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      this.sales.unshift(newSale);
-      return [newSale];
-    }
-
-    if (q.includes('insert into quotes')) {
-      const newQuote: MockQuote = {
-        id: 'q-' + Date.now(),
-        business_id: params[0],
-        customer_id: params[1] ?? null,
-        template_id: null,
-        quote_number: 'PRE-' + String(this.quotes.length + 1).padStart(4, '0'),
-        status: 'draft',
-        vehicle_info: params[3] ?? null,
-        vin: params[4] ?? null,
-        subtotal: Number(params[5]) || 0,
-        vat_rate: Number(params[6]) || 21,
-        vat_amount: Number(params[7]) || 0,
-        total: Number(params[8]) || 0,
-        notes: params[9] ?? null,
-        valid_until: params[10] ?? null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      this.quotes.unshift(newQuote);
-      return [newQuote];
     }
 
     // Default genérico

@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sql } from '@/lib/db';
 import { getSession } from '@/lib/session';
+import { canCreateSale } from '@/lib/permissions';
+import { logAudit } from '@/lib/audit';
 
 const saleItemSchema = z.object({
-  product_id: z.string().uuid().optional(),
+  product_id: z.string().min(1).optional(),
   sku: z.string().min(1),
   name: z.string().min(1),
   quantity: z.number().int().positive(),
@@ -12,22 +14,22 @@ const saleItemSchema = z.object({
 });
 
 const saleSchema = z.object({
-  customer_id: z.string().uuid().nullable().optional(),
-  status: z.enum(['pending', 'paid', 'cancelled']).default('pending'),
+  customer_id: z.string().min(1).nullable().optional(),
+  status: z.enum(['pending', 'paid', 'cancelled']).default('paid'),
   notes: z.string().max(500).nullable().optional(),
-  sale_date: z.string(),
+  sale_date: z.string().optional().default(() => new Date().toISOString().substring(0, 10)),
   items: z.array(saleItemSchema).min(1),
 });
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  if (!['admin', 'manager', 'seller'].includes(session.role)) {
-    return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
+  if (!canCreateSale(session)) {
+    return NextResponse.json({ error: 'Sin permisos para registrar ventas' }, { status: 403 });
   }
 
   const businessId = session.businessId;
-  if (!businessId) return NextResponse.json({ error: 'Sin negocio' }, { status: 403 });
+  if (!businessId) return NextResponse.json({ error: 'Sin negocio asignado' }, { status: 403 });
 
   const body = await request.json();
   const parsed = saleSchema.safeParse(body);
@@ -103,8 +105,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     customerName = (rows[0] as { name: string } | undefined)?.name ?? null;
   }
 
+  // Registrar acción en Monitoreo
+  await logAudit({
+    businessId,
+    userId: session.userId,
+    userName: session.fullName || session.email,
+    userRole: session.role,
+    action: 'VENTA_REGISTRADA',
+    details: `Venta registrada por $${total.toLocaleString('es-AR')} (${d.items.length} repuesto${d.items.length > 1 ? 's' : ''}) para ${customerName ?? 'Consumidor Final'}`,
+    amount: total,
+  });
+
   return NextResponse.json({
-    sale: { ...sale, customer_name: customerName, seller_name: null },
+    sale: { ...sale, customer_name: customerName, seller_name: session.fullName || session.email },
   }, { status: 201 });
 }
 

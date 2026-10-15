@@ -44,10 +44,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ products });
 }
 
+import { canCreateProduct } from '@/lib/permissions';
+import { logAudit } from '@/lib/audit';
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  if (!canManageProducts(session)) return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
+  if (!canCreateProduct(session)) return NextResponse.json({ error: 'Sin permisos para agregar repuestos' }, { status: 403 });
 
   const businessId = session.businessId;
   if (!businessId) return NextResponse.json({ error: 'Sin negocio' }, { status: 403 });
@@ -67,6 +70,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       RETURNING id, business_id, sku, name, description, category, supplier,
                 price::float, cost::float, quantity, min_stock, is_active, created_at, updated_at
     `;
+
+    const newProd = rows[0] as { name: string; sku: string; quantity: number; price: number };
+    await logAudit({
+      businessId,
+      userId: session.userId,
+      userName: session.fullName || session.email,
+      userRole: session.role,
+      action: 'PRODUCTO_CREADO',
+      details: `Nuevo repuesto agregado al catálogo: "${newProd.name}" [${newProd.sku}] (Stock: ${newProd.quantity} u. | Precio: $${newProd.price})`,
+    });
 
     return NextResponse.json({ product: rows[0] }, { status: 201 });
   } catch (error: unknown) {

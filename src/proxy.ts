@@ -37,6 +37,23 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
+  // Rutas exclusivas para Administradores (monitoreo, equipo, gastos, sueldos)
+  if (
+    (pathname.startsWith('/monitoreo') ||
+      pathname.startsWith('/equipo') ||
+      pathname.startsWith('/gastos') ||
+      pathname.startsWith('/sueldos')) &&
+    session.role !== 'admin' &&
+    session.role !== 'superadmin'
+  ) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // Cajeros no acceden a presupuestos
+  if (pathname.startsWith('/presupuestos') && session.role === 'cashier') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
   return NextResponse.next();
 }
 

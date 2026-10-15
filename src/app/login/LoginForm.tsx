@@ -199,16 +199,48 @@ export default function LoginForm() {
             </button>
           </form>
 
-          {/* Credenciales demo */}
+          {/* Credenciales de acceso */}
           <div
             className="mt-6 p-4 rounded-lg text-xs"
             style={{ background: 'var(--color-primary-muted)', color: 'var(--color-primary-dark)' }}
           >
-            <p className="font-semibold mb-2">Credenciales de prueba:</p>
-            <div className="flex flex-col gap-1">
-              <p><strong>Superadmin:</strong> superadmin@repuestocontrol.com</p>
-              <p><strong>Admin:</strong> admin@garcia.com</p>
-              <p><strong>Contraseña:</strong> Demo1234!</p>
+            <p className="font-semibold mb-2">Accesos de Administrador:</p>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p><strong>Admin 1:</strong> admin1@admin.com (Emiliano)</p>
+                  <p style={{ color: 'var(--color-text-muted)' }}>Contraseña: rradmin123_</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary text-xs"
+                  style={{ padding: '0.25rem 0.5rem', minHeight: 'auto' }}
+                  onClick={() => {
+                    setEmail('admin1@admin.com');
+                    setPassword('rradmin123_');
+                  }}
+                >
+                  Usar
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                <div>
+                  <p><strong>Admin 2:</strong> admin2@admin.com (Freddy)</p>
+                  <p style={{ color: 'var(--color-text-muted)' }}>Contraseña: rradmin123_</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary text-xs"
+                  style={{ padding: '0.25rem 0.5rem', minHeight: 'auto' }}
+                  onClick={() => {
+                    setEmail('admin2@admin.com');
+                    setPassword('rradmin123_');
+                  }}
+                >
+                  Usar
+                </button>
+              </div>
             </div>
           </div>
         </div>

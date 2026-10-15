@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sql } from '@/lib/db';
 import { getSession } from '@/lib/session';
-import { canAccessBusiness } from '@/lib/permissions';
+import { canAccessBusiness, canManageSales } from '@/lib/permissions';
+import { logAudit } from '@/lib/audit';
 
 const patchSchema = z.object({
   status: z.enum(['pending', 'paid', 'cancelled']),
@@ -13,7 +14,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function PATCH(request: NextRequest, { params }: Params): Promise<NextResponse> {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  if (!['admin', 'manager'].includes(session.role)) {
+  if (!canManageSales(session)) {
     return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
   }
 
@@ -38,5 +39,15 @@ export async function PATCH(request: NextRequest, { params }: Params): Promise<N
     RETURNING id, status, total::float, sale_date, updated_at
   `;
 
+  await logAudit({
+    businessId: sale.business_id,
+    userId: session.userId,
+    userName: session.fullName || session.email,
+    userRole: session.role,
+    action: 'VENTA_ESTADO',
+    details: `Estado de la venta #${id} cambiado de "${sale.status}" a "${parsed.data.status}"`,
+  });
+
   return NextResponse.json({ sale: rows[0] });
 }
+

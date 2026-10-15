@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { getSession } from '@/lib/session';
 import { sql } from '@/lib/db';
 import DashboardClient from './DashboardClient';
-import type { DashboardStats } from '@/types';
+import type { DashboardStats, ActivityItem } from '@/types';
 
-export const metadata: Metadata = { title: 'Inicio – Panel' };
+export const metadata: Metadata = { title: 'Inicio – Panel de Control' };
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -15,7 +15,7 @@ export default async function DashboardPage() {
 
   if (session.role === 'superadmin') {
     // Superadmin ve stats globales
-    const [businesses, users, salesData, lowStock] = await Promise.all([
+    const [businesses, users, salesData, lowStock, expensesData] = await Promise.all([
       sql`SELECT COUNT(*)::int AS count FROM businesses`,
       sql`SELECT COUNT(*)::int AS count FROM users WHERE role != 'superadmin'`,
       sql`
@@ -30,23 +30,31 @@ export default async function DashboardPage() {
         FROM products
         WHERE quantity <= min_stock AND is_active = TRUE
       `,
+      sql`
+        SELECT COALESCE(SUM(amount), 0)::float AS total_month
+        FROM expenses
+        WHERE expense_date >= date_trunc('month', CURRENT_DATE)
+      `,
     ]);
 
+    const salesTotal = Number((salesData[0] as { total_month: number })?.total_month || 0);
+    const expTotal = Number((expensesData[0] as { total_month: number })?.total_month || 0);
+
     stats = {
-      totalSalesMonth: Number((salesData[0] as { total_month: number }).total_month),
-      salesCountMonth: Number((salesData[0] as { count_month: number }).count_month),
-      lowStockCount: Number((lowStock[0] as { count: number }).count),
-      activeCustomers: Number((users[0] as { count: number }).count),
+      totalSalesMonth: salesTotal,
+      salesCountMonth: Number((salesData[0] as { count_month: number })?.count_month || 0),
+      totalExpensesMonth: expTotal,
+      netProfitMonth: salesTotal - expTotal,
+      lowStockCount: Number((lowStock[0] as { count: number })?.count || 0),
+      activeCustomers: Number((users[0] as { count: number })?.count || 0),
       recentActivity: [],
       lowStockProducts: [],
       monthlySales: [],
     };
-
-    // Usar businesses count como extra info
     void businesses;
   } else {
     const bId = businessId!;
-    const [salesData, lowStockData, customersData, recentSales, monthlySalesData] =
+    const [salesData, lowStockData, customersData, expensesData, auditData, monthlySalesData] =
       await Promise.all([
         sql`
           SELECT COALESCE(SUM(total), 0)::float AS total_month,
@@ -72,13 +80,17 @@ export default async function DashboardPage() {
             AND sale_date >= date_trunc('month', CURRENT_DATE)
         `,
         sql`
-          SELECT s.id, s.total, s.status, s.sale_date, s.created_at,
-                 c.name AS customer_name
-          FROM sales s
-          LEFT JOIN customers c ON c.id = s.customer_id
-          WHERE s.business_id = ${bId}
-          ORDER BY s.created_at DESC
-          LIMIT 5
+          SELECT COALESCE(SUM(amount), 0)::float AS total_month
+          FROM expenses
+          WHERE business_id = ${bId}
+            AND expense_date >= date_trunc('month', CURRENT_DATE)
+        `,
+        sql`
+          SELECT id, user_name, user_role, action, details, amount::float, created_at
+          FROM audit_logs
+          WHERE business_id = ${bId}
+          ORDER BY created_at DESC
+          LIMIT 6
         `,
         sql`
           SELECT TO_CHAR(date_trunc('month', sale_date), 'Mon') AS month,
@@ -92,23 +104,50 @@ export default async function DashboardPage() {
         `,
       ]);
 
+    const salesTotal = Number((salesData[0] as { total_month: number })?.total_month || 0);
+    const expTotal = Number((expensesData[0] as { total_month: number })?.total_month || 0);
+
+    // Mapear actividad reciente directamente desde los registros de auditoría
+    const recentActivity: ActivityItem[] = (
+      auditData as Array<{
+        id: string;
+        user_name: string;
+        user_role: any;
+        action: string;
+        details: string;
+        amount: number | null;
+        created_at: string;
+      }>
+    ).map((log) => ({
+      id: log.id,
+      type: log.action.startsWith('VENTA')
+        ? 'sale'
+        : log.action.startsWith('STOCK')
+        ? 'stock'
+        : log.action.startsWith('GASTO')
+        ? 'expense'
+        : log.action.startsWith('PRODUCTO')
+        ? 'product'
+        : log.action.startsWith('USUARIO')
+        ? 'user'
+        : 'customer',
+      description: log.details,
+      user_name: log.user_name,
+      user_role: log.user_role,
+      amount: log.amount ?? undefined,
+      created_at: log.created_at,
+    }));
+
     stats = {
-      totalSalesMonth: Number((salesData[0] as { total_month: number }).total_month),
-      salesCountMonth: Number((salesData[0] as { count_month: number }).count_month),
-      lowStockCount: lowStockData.length,
-      activeCustomers: Number((customersData[0] as { count: number }).count),
-      recentActivity: (recentSales as Array<{
-        id: string; total: number; status: string; sale_date: string;
-        created_at: string; customer_name: string;
-      }>).map((s) => ({
-        id: s.id,
-        type: 'sale' as const,
-        description: `Venta a ${s.customer_name ?? 'cliente'}`,
-        amount: s.total,
-        created_at: s.created_at,
-      })),
-      lowStockProducts: lowStockData as never[],
-      monthlySales: (monthlySalesData as Array<{ month: string; total: number }>),
+      totalSalesMonth: salesTotal,
+      salesCountMonth: Number((salesData[0] as { count_month: number })?.count_month || 0),
+      totalExpensesMonth: expTotal,
+      netProfitMonth: salesTotal - expTotal,
+      lowStockCount: (lowStockData as any[]).length,
+      activeCustomers: Number((customersData[0] as { count: number })?.count || 0),
+      recentActivity,
+      lowStockProducts: lowStockData as any[],
+      monthlySales: monthlySalesData as Array<{ month: string; total: number }>,
     };
   }
 

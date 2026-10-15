@@ -2,7 +2,7 @@
 // Tipos de dominio de Repuesto Control
 // ============================================================
 
-export type UserRole = 'superadmin' | 'admin' | 'manager' | 'seller';
+export type UserRole = 'superadmin' | 'admin' | 'manager' | 'seller' | 'cashier';
 export type SubscriptionType = 'monthly' | 'fixed';
 export type SubscriptionStatus = 'active' | 'suspended' | 'expired';
 export type SaleStatus = 'pending' | 'paid' | 'cancelled';
@@ -109,6 +109,7 @@ export interface QuoteItem {
   product_id: string | null;
   sku: string;
   name: string;
+  brand?: string | null;
   quantity: number;
   unit_price: number;
   subtotal: number;
@@ -190,6 +191,7 @@ export interface QuoteItemForm {
   product_id?: string;
   sku: string;
   name: string;
+  brand?: string;
   quantity: number;
   unit_price: number;
 }
@@ -211,21 +213,128 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
+// Gastos de negocio (luz, insumos, etc.)
+export type ExpenseCategory =
+  | 'servicios'
+  | 'insumos'
+  | 'alquiler'
+  | 'sueldos'
+  | 'mantenimiento'
+  | 'impuestos'
+  | 'otros';
+
+export interface Expense {
+  id: string;
+  business_id: string;
+  title: string;
+  category: ExpenseCategory;
+  amount: number;
+  expense_date: string;
+  notes: string | null;
+  created_by_id: string | null;
+  created_by_name?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseFormData {
+  title: string;
+  category: ExpenseCategory;
+  amount: number;
+  expense_date: string;
+  notes?: string;
+}
+
+// Sueldos y liquidaciones de personal
+export type SalaryStatus = 'pending' | 'paid';
+export type PaymentMethod = 'efectivo' | 'transferencia' | 'cheque';
+
+export interface Salary {
+  id: string;
+  business_id: string;
+  user_id?: string | null;
+  employee_name: string;
+  employee_role: string;
+  period: string; // '2026-10' o 'Octubre 2026'
+  base_amount: number;
+  bonus_amount: number;
+  deductions_amount: number;
+  total_amount: number;
+  status: SalaryStatus;
+  payment_date?: string | null;
+  payment_method?: PaymentMethod | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalaryFormData {
+  user_id?: string;
+  employee_name: string;
+  employee_role: string;
+  period: string;
+  base_amount: number;
+  bonus_amount?: number;
+  deductions_amount?: number;
+  status: SalaryStatus;
+  payment_date?: string;
+  payment_method?: PaymentMethod;
+  notes?: string;
+}
+
+// Monitoreo y auditoría de acciones del personal (vendedor, cajero, admin)
+export type AuditActionType =
+  | 'VENTA_REGISTRADA'
+  | 'VENTA_ESTADO'
+  | 'STOCK_CARGADO'
+  | 'STOCK_AJUSTADO'
+  | 'PRODUCTO_CREADO'
+  | 'PRODUCTO_EDITADO'
+  | 'PRODUCTO_ELIMINADO'
+  | 'GASTO_REGISTRADO'
+  | 'GASTO_ELIMINADO'
+  | 'CLIENTE_CREADO'
+  | 'CLIENTE_EDITADO'
+  | 'USUARIO_CREADO'
+  | 'USUARIO_ESTADO'
+  | 'PRESUPUESTO_CREADO'
+  | 'PRESUPUESTO_ESTADO'
+  | 'SUELDO_REGISTRADO'
+  | 'SUELDO_PAGADO'
+  | 'SUELDO_ELIMINADO';
+
+export interface AuditLog {
+  id: string;
+  business_id: string;
+  user_id: string;
+  user_name: string;
+  user_role: UserRole;
+  action: AuditActionType;
+  details: string;
+  amount?: number | null;
+  created_at: string;
+}
+
 // Dashboard stats
 export interface DashboardStats {
   totalSalesMonth: number;
   salesCountMonth: number;
+  totalExpensesMonth: number;
+  netProfitMonth: number;
   lowStockCount: number;
   activeCustomers: number;
   recentActivity: ActivityItem[];
   lowStockProducts: Product[];
-  monthlySales: { month: string; total: number }[];
+  monthlySales: { month: string; total: number; expenses?: number }[];
 }
 
 export interface ActivityItem {
   id: string;
-  type: 'sale' | 'quote' | 'product' | 'customer';
+  type: 'sale' | 'quote' | 'product' | 'customer' | 'expense' | 'stock' | 'user' | 'salary';
   description: string;
+  user_name?: string;
+  user_role?: UserRole;
   amount?: number;
   created_at: string;
 }
+

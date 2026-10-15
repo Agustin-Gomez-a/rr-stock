@@ -1,0 +1,91 @@
+{
+  "businesses": [
+    {
+      "id": "11111111-0000-0000-0000-000000000001",
+      "name": "RR REPUESTOS & LUBRICANTES",
+      "slug": "rr-repuestos-lubricantes",
+      "logo_url": null,
+      "address": "Av. Martín Berho 532, San Miguel de Tucumán",
+      "phone": "3815853438 - 3816241623",
+      "tax_id": "20-33703597-4",
+      "created_at": "2026-10-15T00:14:40.162Z",
+      "updated_at": "2026-10-15T00:14:40.163Z"
+    }
+  ],
+  "subscriptions": [
+    {
+      "id": "sub-1",
+      "business_id": "11111111-0000-0000-0000-000000000001",
+      "type": "monthly",
+      "status": "active",
+      "amount": 25000,
+      "starts_at": "2026-01-01",
+      "expires_at": "2028-12-31",
+      "last_payment_at": "2026-10-01",
+      "notes": "Abono Premium Activo",
+      "created_at": "2026-10-15T00:14:40.163Z",
+      "updated_at": "2026-10-15T00:14:40.163Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "aaaaaaaa-0000-0000-0000-000000000001",
+      "business_id": null,
+      "email": "superadmin@repuestocontrol.com",
+      "password_hash": "$2b$10$MJqzGB7nZM3Pni6hBa1oxOFu2tz8oghUh/xnd.78k5i8kXhcP7c3K",
+      "full_name": "Super Administrador",
+      "role": "superadmin",
+      "is_active": true,
+      "last_login_at": null,
+      "created_at": "2026-10-15T00:14:40.163Z",
+      "updated_at": "2026-10-15T00:14:40.163Z"
+    },
+    {
+      "id": "aaaaaaaa-0000-0000-0000-000000000002",
+      "business_id": "11111111-0000-0000-0000-000000000001",
+      "email": "admin1@admin.com",
+      "password_hash": "$2b$10$MJqzGB7nZM3Pni6hBa1oxOFu2tz8oghUh/xnd.78k5i8kXhcP7c3K",
+      "full_name": "Emiliano",
+      "role": "admin",
+      "is_active": true,
+      "last_login_at": null,
+      "created_at": "2026-10-15T00:14:40.163Z",
+      "updated_at": "2026-10-15T00:14:40.163Z"
+    },
+    {
+      "id": "aaaaaaaa-0000-0000-0000-000000000003",
+      "business_id": "11111111-0000-0000-0000-000000000001",
+      "email": "admin2@admin.com",
+      "password_hash": "$2b$10$MJqzGB7nZM3Pni6hBa1oxOFu2tz8oghUh/xnd.78k5i8kXhcP7c3K",
+      "full_name": "Freddy",
+      "role": "admin",
+      "is_active": true,
+      "last_login_at": null,
+      "created_at": "2026-10-15T00:14:40.163Z",
+      "updated_at": "2026-10-15T00:14:40.163Z"
+    }
+  ],
+  "customers": [],
+  "products": [],
+  "sales": [],
+  "saleItems": [],
+  "expenses": [],
+  "auditLogs": [],
+  "quotes": [],
+  "quoteItems": [],
+  "quoteTemplates": [
+    {
+      "id": "t1",
+      "business_id": "11111111-0000-0000-0000-000000000001",
+      "business_name": "RR REPUESTOS & LUBRICANTES",
+      "logo_url": null,
+      "title": "PRESUPUESTO",
+      "footer_text": "Validez de la oferta: 7 días | Disponibilidad: Inmediata / A pedido | Tel: 3815853438 - 3816241623",
+      "payment_terms": "Forma de pago: Efectivo / Transferencia",
+      "vat_rate": 21,
+      "created_at": "2026-10-15T00:14:40.163Z",
+      "updated_at": "2026-10-15T00:14:40.163Z"
+    }
+  ],
+  "salaries": []
+}

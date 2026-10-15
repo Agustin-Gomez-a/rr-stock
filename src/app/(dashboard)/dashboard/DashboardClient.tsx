@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import type { SessionPayload } from '@/lib/auth';
 import type { DashboardStats } from '@/types';
 import { formatCurrency, formatDateTime, ROLE_LABELS } from '@/lib/utils';
@@ -18,6 +19,10 @@ export default function DashboardClient({ session, stats }: Props) {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
 
+  const isAdmin = session.role === 'admin' || session.role === 'superadmin';
+  const isSeller = session.role === 'seller';
+  const isCashier = session.role === 'cashier';
+
   return (
     <div>
       {/* Cabecera */}
@@ -28,14 +33,77 @@ export default function DashboardClient({ session, stats }: Props) {
           </h1>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
             {dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}
-            {session.role !== 'superadmin' && session.businessName && (
-              <span> · {session.businessName}</span>
-            )}
+            {session.businessName && <span> · {session.businessName}</span>}
           </p>
         </div>
-        <span className="badge badge-green">
-          {ROLE_LABELS[session.role]}
+        <div className="flex items-center gap-2">
+          <span className="badge badge-green">
+            {ROLE_LABELS[session.role]}
+          </span>
+          {session.fullName && (
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>
+              {session.fullName}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Botones de acción rápida según rol */}
+      <div
+        className="card"
+        style={{
+          padding: '0.875rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          gap: '0.75rem',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          background: 'var(--color-surface-2)',
+        }}
+      >
+        <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+          Acciones rápidas:
         </span>
+        <Link href="/ventas" className="btn btn-primary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.8125rem' }}>
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Registrar venta
+        </Link>
+        {(isAdmin || isSeller) && (
+          <Link href="/catalogo" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.8125rem' }}>
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/>
+              <path d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/>
+            </svg>
+            {isSeller ? 'Cargar stock (+)' : 'Catálogo y Stock'}
+          </Link>
+        )}
+        {isAdmin && (
+          <>
+            <Link href="/gastos" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.8125rem' }}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <line x1="2" y1="10" x2="22" y2="10"/>
+              </svg>
+              Cargar gasto (luz/insumos)
+            </Link>
+            <Link href="/monitoreo" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.8125rem' }}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              Monitoreo del personal
+            </Link>
+            <Link href="/equipo" className="btn btn-secondary" style={{ padding: '0.375rem 0.75rem', fontSize: '0.8125rem' }}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+              </svg>
+              Gestionar equipo
+            </Link>
+          </>
+        )}
       </div>
 
       {/* Stat cards */}
@@ -50,7 +118,7 @@ export default function DashboardClient({ session, stats }: Props) {
         <StatCard
           label="Ventas del mes"
           value={formatCurrency(stats.totalSalesMonth)}
-          sub={`${stats.salesCountMonth} transacción${stats.salesCountMonth !== 1 ? 'es' : ''}`}
+          sub={`${stats.salesCountMonth} operación${stats.salesCountMonth !== 1 ? 'es' : ''} cobrada${stats.salesCountMonth !== 1 ? 's' : ''}`}
           color="var(--color-primary)"
           icon={
             <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -58,10 +126,41 @@ export default function DashboardClient({ session, stats }: Props) {
             </svg>
           }
         />
+
+        {isAdmin && (
+          <>
+            <StatCard
+              label="Gastos del mes"
+              value={formatCurrency(stats.totalExpensesMonth || 0)}
+              sub="luz, insumos y servicios"
+              color="#DC2626"
+              icon={
+                <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <rect x="2" y="4" width="20" height="16" rx="2"/>
+                  <line x1="2" y1="10" x2="22" y2="10"/>
+                  <line x1="6" y1="15" x2="10" y2="15"/>
+                </svg>
+              }
+            />
+            <StatCard
+              label="Utilidad neta estimada"
+              value={formatCurrency(stats.netProfitMonth || 0)}
+              sub="Ventas cobradas - Gastos"
+              color={stats.netProfitMonth >= 0 ? 'var(--color-primary)' : '#DC2626'}
+              icon={
+                <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                  <polyline points="17 6 23 6 23 12"/>
+                </svg>
+              }
+            />
+          </>
+        )}
+
         <StatCard
-          label="Stock bajo"
+          label="Alertas de stock"
           value={String(stats.lowStockCount)}
-          sub="productos bajo mínimo"
+          sub="repuestos bajo mínimo"
           color="var(--color-warning)"
           icon={
             <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -70,8 +169,9 @@ export default function DashboardClient({ session, stats }: Props) {
             </svg>
           }
         />
+
         <StatCard
-          label="Clientes activos"
+          label="Clientes atendidos"
           value={String(stats.activeCustomers)}
           sub="este mes"
           color="var(--color-info)"
@@ -96,7 +196,7 @@ export default function DashboardClient({ session, stats }: Props) {
         {/* Gráfico de ventas */}
         {stats.monthlySales.length > 0 && (
           <div className="card" style={{ gridColumn: 'span 2' }}>
-            <h2 style={{ fontSize: '1rem', marginBottom: '1.25rem' }}>Ventas últimos 6 meses</h2>
+            <h2 style={{ fontSize: '1rem', marginBottom: '1.25rem' }}>Evolución de ventas mensuales</h2>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={stats.monthlySales}>
                 <defs>
@@ -142,7 +242,7 @@ export default function DashboardClient({ session, stats }: Props) {
                 <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
                 <polyline points="22 4 12 14.01 9 11.01"/>
               </svg>
-              <p>Todo el stock está en niveles correctos</p>
+              <p>Todo el inventario está en niveles óptimos</p>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
@@ -177,12 +277,19 @@ export default function DashboardClient({ session, stats }: Props) {
           )}
         </div>
 
-        {/* Actividad reciente */}
+        {/* Actividad y Monitoreo reciente */}
         <div className="card">
-          <h2 style={{ fontSize: '1rem', marginBottom: '1rem' }}>Actividad reciente</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <h2 style={{ fontSize: '1rem' }}>Actividad y Auditoría reciente</h2>
+            {isAdmin && (
+              <Link href="/monitoreo" style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+                Ver todo →
+              </Link>
+            )}
+          </div>
           {stats.recentActivity.length === 0 ? (
             <div className="empty-state" style={{ padding: '2rem 1rem' }}>
-              <p>No hay actividad reciente</p>
+              <p>No hay actividad registrada todavía</p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
@@ -193,32 +300,57 @@ export default function DashboardClient({ session, stats }: Props) {
                     display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
                     paddingBottom: '0.75rem',
                     borderBottom: '1px solid var(--color-border)',
-                    animation: 'slideIn 0.3s ease',
                   }}
                 >
                   <div
                     style={{
                       width: '32px', height: '32px',
-                      background: 'var(--color-primary-muted)',
+                      background: item.type === 'expense' ? '#FEE2E2' : 'var(--color-primary-muted)',
+                      color: item.type === 'expense' ? '#DC2626' : 'var(--color-primary)',
                       borderRadius: '8px',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       flexShrink: 0,
                     }}
                   >
-                    <svg width="16" height="16" fill="none" stroke="var(--color-primary)" strokeWidth="2" viewBox="0 0 24 24">
-                      <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-                      <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.95-1.57l1.65-7.43H6"/>
-                    </svg>
+                    {item.type === 'sale' && (
+                      <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.95-1.57l1.65-7.43H6"/>
+                      </svg>
+                    )}
+                    {item.type === 'stock' && (
+                      <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/>
+                      </svg>
+                    )}
+                    {item.type === 'expense' && (
+                      <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                      </svg>
+                    )}
+                    {item.type !== 'sale' && item.type !== 'stock' && item.type !== 'expense' && (
+                      <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="9"/>
+                      </svg>
+                    )}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{item.description}</p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.125rem' }}>
+                    <p style={{ fontSize: '0.8125rem', fontWeight: 500, lineHeight: 1.3 }}>
+                      {item.description}
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
                       <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                        {formatDateTime(item.created_at)}
+                        {item.user_name ? `${item.user_name} · ` : ''}{formatDateTime(item.created_at)}
                       </span>
                       {item.amount !== undefined && (
-                        <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-primary)' }}>
-                          {formatCurrency(item.amount)}
+                        <span
+                          style={{
+                            fontSize: '0.8125rem',
+                            fontWeight: 600,
+                            color: item.type === 'expense' ? '#DC2626' : 'var(--color-primary)',
+                          }}
+                        >
+                          {item.type === 'expense' ? '-' : ''}{formatCurrency(item.amount)}
                         </span>
                       )}
                     </div>

@@ -27,10 +27,12 @@ export async function GET(): Promise<NextResponse> {
   return NextResponse.json({ customers });
 }
 
+import { logAudit } from '@/lib/audit';
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  if (!['admin', 'manager'].includes(session.role)) {
+  if (!['admin', 'manager', 'seller', 'cashier'].includes(session.role)) {
     return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
   }
   if (!session.businessId) return NextResponse.json({ error: 'Sin negocio' }, { status: 403 });
@@ -47,6 +49,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             ${d.address || null}, ${d.tax_id || null}, ${d.notes || null})
     RETURNING *
   `;
+
+  await logAudit({
+    businessId: session.businessId,
+    userId: session.userId,
+    userName: session.fullName || session.email,
+    userRole: session.role,
+    action: 'CLIENTE_CREADO',
+    details: `Nuevo cliente registrado: "${d.name}" ${d.phone ? '(' + d.phone + ')' : ''}`,
+  });
 
   return NextResponse.json({ customer: rows[0] }, { status: 201 });
 }

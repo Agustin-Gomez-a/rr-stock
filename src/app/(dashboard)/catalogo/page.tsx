@@ -31,7 +31,7 @@ export default async function CatalogoPage() {
     <CatalogoClient
       initialProducts={products}
       categories={categories}
-      canManage={['admin', 'manager'].includes(session.role)}
+      userRole={session.role}
       businessId={session.businessId}
     />
   );

@@ -23,7 +23,7 @@ export default async function ClientesPage() {
     <ClientesClient
       initialCustomers={customers}
       businessId={session.businessId}
-      canManage={['admin', 'manager'].includes(session.role)}
+      canManage={['admin', 'manager', 'seller', 'cashier'].includes(session.role)}
     />
   );
 }

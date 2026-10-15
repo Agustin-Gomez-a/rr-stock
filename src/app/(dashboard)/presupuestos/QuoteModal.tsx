@@ -70,13 +70,14 @@ export default function QuoteModal({
     } else {
       setItems((prev) => [...prev, {
         product_id: p.id, sku: p.sku, name: p.name,
+        brand: p.supplier || p.category || '',
         quantity: 1, unit_price: p.price,
       }]);
     }
     setSelectedProductId('');
   }
 
-  function updateItem(idx: number, key: 'quantity' | 'unit_price' | 'name', value: string | number) {
+  function updateItem(idx: number, key: 'quantity' | 'unit_price' | 'name' | 'brand' | 'sku', value: string | number) {
     setItems((prev) => {
       const copy = [...prev];
       copy[idx] = { ...copy[idx], [key]: value };
@@ -89,7 +90,7 @@ export default function QuoteModal({
   }
 
   function addManualItem() {
-    setItems((prev) => [...prev, { sku: '', name: '', quantity: 1, unit_price: 0 }]);
+    setItems((prev) => [...prev, { sku: '', name: '', brand: '', quantity: 1, unit_price: 0 }]);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -197,9 +198,10 @@ export default function QuoteModal({
                   <tr>
                     <th style={{ width: '90px' }}>SKU</th>
                     <th>Descripción</th>
-                    <th style={{ width: '80px', textAlign: 'center' }}>Cant.</th>
-                    <th style={{ width: '120px', textAlign: 'right' }}>P. Unit.</th>
-                    <th style={{ width: '110px', textAlign: 'right' }}>Subtotal</th>
+                    <th style={{ width: '130px' }}>Marca</th>
+                    <th style={{ width: '70px', textAlign: 'center' }}>Cant.</th>
+                    <th style={{ width: '110px', textAlign: 'right' }}>P. Unit.</th>
+                    <th style={{ width: '105px', textAlign: 'right' }}>Subtotal</th>
                     <th style={{ width: '36px' }}></th>
                   </tr>
                 </thead>
@@ -208,7 +210,7 @@ export default function QuoteModal({
                     <tr key={idx}>
                       <td>
                         <input className="input" value={item.sku}
-                          onChange={(e) => updateItem(idx, 'name', item.name)} // SKU no editable si del catálogo
+                          onChange={(e) => updateItem(idx, 'sku', e.target.value)}
                           readOnly={Boolean(item.product_id)}
                           style={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
                           placeholder="SKU" />
@@ -218,6 +220,12 @@ export default function QuoteModal({
                           onChange={(e) => updateItem(idx, 'name', e.target.value)}
                           style={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
                           placeholder="Descripción del repuesto" />
+                      </td>
+                      <td>
+                        <input className="input" value={item.brand || ''}
+                          onChange={(e) => updateItem(idx, 'brand', e.target.value)}
+                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
+                          placeholder="Marca" />
                       </td>
                       <td>
                         <input type="number" className="input" min="1" step="1" value={item.quantity}

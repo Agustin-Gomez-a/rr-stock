@@ -44,7 +44,7 @@ export default async function VentasPage() {
       initialSales={sales}
       customers={customers}
       products={products}
-      canManage={['admin', 'manager'].includes(session.role)}
+      canManage={['admin', 'manager', 'seller', 'cashier'].includes(session.role)}
       businessId={bId}
     />
   );

@@ -15,6 +15,7 @@ interface Props {
 export default function SaleModal({ customers, products, businessId, onSaved, onClose }: Props) {
   const [customerId, setCustomerId] = useState('');
   const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0, 10));
+  const [status, setStatus] = useState<'paid' | 'pending'>('paid');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<SaleItemForm[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -26,8 +27,16 @@ export default function SaleModal({ customers, products, businessId, onSaved, on
   function addProduct() {
     const p = products.find((pr) => pr.id === selectedProductId);
     if (!p) return;
+    if (p.quantity <= 0) {
+      setError(`El repuesto "${p.name}" no tiene stock disponible`);
+      return;
+    }
     const existing = items.findIndex((i) => i.product_id === p.id);
     if (existing >= 0) {
+      if (items[existing].quantity + 1 > p.quantity) {
+        setError(`No podés agregar más de ${p.quantity} unidades (stock máximo disponible)`);
+        return;
+      }
       setItems((prev) => {
         const copy = [...prev];
         copy[existing] = { ...copy[existing], quantity: copy[existing].quantity + 1 };
@@ -39,10 +48,20 @@ export default function SaleModal({ customers, products, businessId, onSaved, on
         quantity: 1, unit_price: p.price,
       }]);
     }
+    setError('');
     setSelectedProductId('');
   }
 
   function updateItem(index: number, key: 'quantity' | 'unit_price', value: number) {
+    if (key === 'quantity') {
+      const it = items[index];
+      const prod = products.find((pr) => pr.id === it.product_id);
+      if (prod && value > prod.quantity) {
+        setError(`Stock máximo para "${prod.name}": ${prod.quantity} u.`);
+        return;
+      }
+    }
+    setError('');
     setItems((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [key]: value };
@@ -56,7 +75,7 @@ export default function SaleModal({ customers, products, businessId, onSaved, on
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (items.length === 0) { setError('Agregá al menos un producto'); return; }
+    if (items.length === 0) { setError('Agregá al menos un producto a la venta'); return; }
     setError('');
     setLoading(true);
 
@@ -66,7 +85,7 @@ export default function SaleModal({ customers, products, businessId, onSaved, on
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer_id: customerId || null,
-          status: 'pending',
+          status,
           notes: notes || null,
           sale_date: saleDate,
           items,
@@ -74,7 +93,7 @@ export default function SaleModal({ customers, products, businessId, onSaved, on
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? 'Error al guardar'); return; }
+      if (!res.ok) { setError(data.error ?? 'Error al guardar la venta'); return; }
       onSaved(data.sale);
     } catch {
       setError('Error de conexión');
@@ -87,7 +106,12 @@ export default function SaleModal({ customers, products, businessId, onSaved, on
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Nueva venta">
       <div className="modal" style={{ maxWidth: '680px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-          <h2 style={{ fontSize: '1.125rem' }}>Nueva venta</h2>
+          <div>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Nueva venta de repuestos</h2>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>
+              Registrá una venta y descontá automáticamente el stock
+            </p>
+          </div>
           <button className="btn btn-ghost" onClick={onClose} aria-label="Cerrar" style={{ padding: '0.375rem', minHeight: 'auto' }}>
             <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -96,13 +120,21 @@ export default function SaleModal({ customers, products, businessId, onSaved, on
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
             <div>
               <label className="label" htmlFor="s-customer">Cliente</label>
               <select id="s-customer" className="input" value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}>
-                <option value="">Sin cliente</option>
+                <option value="">Consumidor Final (Sin cliente)</option>
                 {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="s-status">Estado</label>
+              <select id="s-status" className="input" value={status}
+                onChange={(e) => setStatus(e.target.value as any)}>
+                <option value="paid">Pagada / Cobrada</option>
+                <option value="pending">Pendiente</option>
               </select>
             </div>
             <div>

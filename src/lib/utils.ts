@@ -43,6 +43,7 @@ export const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrador',
   manager: 'Gerente',
   seller: 'Vendedor',
+  cashier: 'Cajero',
 };
 
 export const SUBSCRIPTION_STATUS_LABELS: Record<string, string> = {
@@ -63,3 +64,47 @@ export const QUOTE_STATUS_LABELS: Record<string, string> = {
   accepted: 'Aceptado',
   rejected: 'Rechazado',
 };
+
+export const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
+  servicios: 'Luz y Servicios (Agua/Gas/Internet)',
+  insumos: 'Insumos de Taller y Embalaje',
+  alquiler: 'Alquiler del Local / Depósito',
+  sueldos: 'Sueldos y Comisiones',
+  mantenimiento: 'Mantenimiento y Reparaciones',
+  impuestos: 'Impuestos y Tasas',
+  otros: 'Otros Gastos Operativos',
+};
+
+export const AUDIT_ACTION_LABELS: Record<string, { label: string; badge: string }> = {
+  VENTA_REGISTRADA: { label: 'Venta Registrada', badge: 'badge-green' },
+  VENTA_ESTADO: { label: 'Estado de Venta', badge: 'badge-blue' },
+  STOCK_CARGADO: { label: 'Carga de Stock', badge: 'badge-green' },
+  STOCK_AJUSTADO: { label: 'Ajuste de Stock', badge: 'badge-yellow' },
+  PRODUCTO_CREADO: { label: 'Producto Creado', badge: 'badge-blue' },
+  PRODUCTO_EDITADO: { label: 'Producto Editado', badge: 'badge-gray' },
+  PRODUCTO_ELIMINADO: { label: 'Producto Eliminado', badge: 'badge-red' },
+  GASTO_REGISTRADO: { label: 'Gasto Registrado', badge: 'badge-yellow' },
+  GASTO_ELIMINADO: { label: 'Gasto Eliminado', badge: 'badge-red' },
+  CLIENTE_CREADO: { label: 'Cliente Creado', badge: 'badge-blue' },
+  CLIENTE_EDITADO: { label: 'Cliente Editado', badge: 'badge-gray' },
+  USUARIO_CREADO: { label: 'Usuario Creado', badge: 'badge-green' },
+  USUARIO_ESTADO: { label: 'Estado de Usuario', badge: 'badge-yellow' },
+  PRESUPUESTO_CREADO: { label: 'Presupuesto Creado', badge: 'badge-blue' },
+  PRESUPUESTO_ESTADO: { label: 'Estado de Presupuesto', badge: 'badge-gray' },
+  SUELDO_REGISTRADO: { label: 'Sueldo Liquidado', badge: 'badge-blue' },
+  SUELDO_PAGADO: { label: 'Sueldo Pagado', badge: 'badge-green' },
+  SUELDO_ELIMINADO: { label: 'Sueldo Anulado', badge: 'badge-red' },
+};
+
+export const SALARY_STATUS_LABELS: Record<string, { label: string; badge: string }> = {
+  pending: { label: 'Pendiente de Pago', badge: 'badge-yellow' },
+  paid: { label: 'Pagado', badge: 'badge-green' },
+};
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  efectivo: 'Efectivo',
+  transferencia: 'Transferencia Bancaria',
+  cheque: 'Cheque',
+};
+
+
