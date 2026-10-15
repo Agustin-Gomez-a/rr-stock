@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Customer, CustomerFormData } from '@/types';
 
 interface Props {
@@ -12,6 +12,8 @@ interface Props {
 
 export default function CustomerModal({ customer, businessId, onSaved, onClose }: Props) {
   const isEdit = Boolean(customer);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
   const [form, setForm] = useState<CustomerFormData>(
     customer
       ? {
@@ -26,6 +28,10 @@ export default function CustomerModal({ customer, businessId, onSaved, onClose }
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    nameInputRef.current?.focus();
+  }, []);
 
   function set<K extends keyof CustomerFormData>(key: K, value: CustomerFormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -92,6 +98,7 @@ export default function CustomerModal({ customer, businessId, onSaved, onClose }
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
           <h2 style={{ fontSize: '1.125rem' }}>{isEdit ? 'Editar cliente' : 'Agregar cliente'}</h2>
           <button
+            type="button"
             className="btn btn-ghost"
             onClick={onClose}
             aria-label="Cerrar"
@@ -107,16 +114,16 @@ export default function CustomerModal({ customer, businessId, onSaved, onClose }
         <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
           <div>
             <label className="label" htmlFor="cu-name">
-              Nombre y Apellido <span style={{ color: 'var(--color-danger, #ef4444)' }}>*</span>
+              <span>Nombre y Apellido</span> <span style={{ color: 'var(--color-danger, #ef4444)' }}>*</span>
             </label>
             <input
+              ref={nameInputRef}
               id="cu-name"
               className="input"
               required
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
               placeholder="Ej: Juan Pérez"
-              autoFocus
             />
             <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
               Único dato obligatorio requerido.
